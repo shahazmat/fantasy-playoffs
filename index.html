@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playoff Race</title>
+  <meta name="description" content="Live playoff race tracker: standings, playoff odds and what's at stake each week.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div class="brand">
+        <img id="league-avatar" class="league-avatar" alt="" hidden>
+        <div>
+          <h1 id="league-name">Playoff Race</h1>
+          <p id="league-sub" class="muted">Loading league…</p>
+        </div>
+      </div>
+      <div class="controls">
+        <label class="select">
+          <span>Your team</span>
+          <select id="my-team"><option value="">—</option></select>
+        </label>
+        <button id="refresh" class="btn" type="button" title="Reload from Sleeper">↻ Refresh</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="error" class="error" hidden></div>
+    <div id="loading" class="loading">Fetching league data…</div>
+
+    <div id="content" hidden>
+      <section class="summary" id="summary"></section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Playoff picture</h2>
+          <p class="muted" id="picture-note"></p>
+        </div>
+        <div class="table-scroll"><table class="table picture" id="picture"></table></div>
+        <p class="legend muted" id="legend"></p>
+      </section>
+
+      <section class="card" id="bracket-card">
+        <div class="card-head">
+          <h2>If the season ended today</h2>
+          <p class="muted" id="bracket-sub"></p>
+        </div>
+        <div class="bracket" id="bracket"></div>
+      </section>
+
+      <section>
+        <h2 class="section-title">Division standings</h2>
+        <div class="divisions" id="divisions"></div>
+      </section>
+
+      <section class="card" id="stakes-card">
+        <div class="card-head">
+          <h2 id="stakes-title">What's at stake</h2>
+          <p class="muted">Each team's playoff odds with a win vs. a loss this week, biggest swings first.</p>
+        </div>
+        <div class="stakes" id="stakes"></div>
+      </section>
+
+      <section class="card" id="rooting-card">
+        <div class="card-head">
+          <h2 id="rooting-title">Rooting guide</h2>
+          <p class="muted" id="rooting-sub"></p>
+        </div>
+        <div id="rooting"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Seed odds</h2>
+          <p class="muted">Chance of finishing in each playoff seed.</p>
+        </div>
+        <div class="table-scroll"><table class="table heat" id="seeds"></table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Remaining schedule</h2>
+          <p class="muted">Opponent and their current record. Darker = stronger opponent (season scoring average). SOS ranks schedules from hardest (1) to easiest.</p>
+        </div>
+        <div class="table-scroll"><table class="table sched" id="schedule"></table></div>
+      </section>
+
+      <section class="notes muted" id="notes"></section>
+    </div>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
