@@ -120,9 +120,11 @@ export function buildBase(league) {
 
 // ---------- ranking with constitution tiebreakers ----------
 
-function makeRanker(st, divOf, rand, log) {
+// dir = 1 ranks best-first (playoffs); dir = -1 ranks worst-first using the
+// inverse of every tiebreaker (Shit Bowl).
+function makeRanker(st, divOf, rand, log, dir = 1) {
   const T = st.T;
-  const rec = i => pct(st.w[i], st.g[i]);
+  const rec = i => dir * pct(st.w[i], st.g[i]);
   const metric = (step, g) => {
     if (step === 'h2h') {
       if (g.length !== 2) return null;
@@ -130,14 +132,15 @@ function makeRanker(st, divOf, rand, log) {
       const n = st.hg[a * T + b];
       if (!n) return null;
       const x = st.hw[a * T + b] / n;
-      return [x, 1 - x];
+      return [dir * x, dir * (1 - x)];
     }
-    if (step === 'div') return g.map(i => pct(st.dw[i], st.dg[i]));
-    if (step === 'bd') return g.map(i => pct(st.bw[i], st.bg[i]));
+    if (step === 'div') return g.map(i => dir * pct(st.dw[i], st.dg[i]));
+    if (step === 'bd') return g.map(i => dir * pct(st.bw[i], st.bg[i]));
     return null;
   };
 
-  function run(g, kind, original) {
+  // trail: [[step, teamsSeparatedByThatStep], ...] for explaining the result
+  function run(g, kind, trail = []) {
     if (g.length === 1) return g[0];
     const proc = kind === 'div'
       ? (g.length === 2 ? ['h2h', 'div', 'bd'] : ['div', 'bd'])
@@ -147,11 +150,12 @@ function makeRanker(st, divOf, rand, log) {
       if (!v) continue;
       const max = Math.max(...v);
       const f = g.filter((_, k) => v[k] > max - EPS);
-      if (f.length === 1) { log && log(step, f[0], original || g); return f[0]; }
-      if (f.length < g.length) return run(f, kind, original || g);
+      const beaten = g.filter(i => !f.includes(i));
+      if (f.length === 1) { log && log(f[0], [...trail, [step, beaten]]); return f[0]; }
+      if (f.length < g.length) return run(f, kind, [...trail, [step, beaten]]);
     }
     const pick = g[Math.floor(rand() * g.length)];
-    log && log('spr', pick, original || g);
+    log && log(pick, [...trail, ['spr', g.filter(i => i !== pick)]]);
     return pick;
   }
 
@@ -192,8 +196,10 @@ function makeRanker(st, divOf, rand, log) {
 }
 
 // Full 1..T order: division winners first (seeded by record), then everyone else.
-export function seedOrder(st, divOf, divisionWinnersSeeded, rand = Math.random, log = null) {
-  const { rankByRecord } = makeRanker(st, divOf, rand, log);
+// With dir = -1 this is the Shit Bowl order: division losers first (worst
+// record first), then everyone else worst-first.
+export function seedOrder(st, divOf, divisionWinnersSeeded, rand = Math.random, log = null, dir = 1) {
+  const { rankByRecord } = makeRanker(st, divOf, rand, log, dir);
   const all = Array.from({ length: st.T }, (_, i) => i);
   const divIds = [...new Set(divOf.filter(d => d != null))];
   if (!divisionWinnersSeeded || divIds.length < 2) return { order: rankByRecord(all), divOrder: null };
@@ -204,21 +210,21 @@ export function seedOrder(st, divOf, divisionWinnersSeeded, rand = Math.random, 
 }
 
 // Current standings with notes on how ties were broken.
-export function currentOrder(league, base) {
+export function currentOrder(league, base, dir = 1) {
+  const cfg = dir > 0 ? league.playoffs : league.shitBowl;
   const notes = new Map();
-  const log = (step, winner, group) => {
-    const others = group.filter(i => i !== winner);
-    if (!others.length) return;
-    const names = others.map(i => league.teams[i].name).join(', ');
-    const text = step === 'spr'
-      ? `Tied with ${names} — unresolved, Scissors, Paper, Rock`
-      : `Ahead of ${names} on ${RULE_LABEL[step]}`;
-    if (!notes.has(winner)) notes.set(winner, text);
+  const log = (winner, trail) => {
+    if (notes.has(winner)) return;
+    const parts = trail.filter(([, beaten]) => beaten.length).map(([step, beaten]) => {
+      const names = beaten.map(i => league.teams[i].name).join(', ');
+      return step === 'spr' ? `tied with ${names} (unresolved: Scissors, Paper, Rock)` : `${names} on ${RULE_LABEL[step]}`;
+    });
+    if (parts.length) notes.set(winner, `${dir > 0 ? 'Ahead of' : 'Below'} ${parts.join('; ')}`);
   };
   // Deterministic stand-in for SPR so the table doesn't shuffle on refresh.
   let k = 0;
   const pseudo = () => ((k++ * 0.6180339887) % 1);
-  const { order, divOrder } = seedOrder(base.st, base.divOf, league.playoffs.divisionWinnersSeeded, pseudo, log);
+  const { order, divOrder } = seedOrder(base.st, base.divOf, cfg.divisionWinnersSeeded, pseudo, log, dir);
   return { order, divOrder, notes };
 }
 
@@ -231,13 +237,16 @@ export const remainingWeeks = league => league.regularSeasonWeeks.filter(w => w 
 // Only claims "clinched"/"eliminated" when guaranteed on wins alone; any tie
 // is treated as possibly going either way.
 
-export function clinchStatus(league, base) {
+// With dir = -1 the same logic runs on losses: "division clinched" means
+// clinched last place, "playoffs clinched" means locked into the Shit Bowl and
+// "eliminated" means safe from it.
+export function clinchStatus(league, base, dir = 1) {
   const T = base.T;
   const rem = new Array(T).fill(0);
   for (const g of remainingGames(league)) { rem[base.idx.get(g.a)]++; rem[base.idx.get(g.b)]++; }
-  const cur = i => base.st.w[i];
+  const cur = i => (dir > 0 ? base.st.w[i] : base.st.g[i] - base.st.w[i]);
   const max = i => cur(i) + rem[i];
-  const { teams: spots, byes, divisionWinnersSeeded } = league.playoffs;
+  const { teams: spots, byes, divisionWinnersSeeded } = dir > 0 ? league.playoffs : league.shitBowl;
   const hasDivs = divisionWinnersSeeded && league.divisions.length > 1;
   const nDivs = league.divisions.length;
   const wildcards = hasDivs ? spots - nDivs : spots;
@@ -321,9 +330,10 @@ function makeNormal() {
 
 export function simulate(league, base, model, n = 10000) {
   const { T, idx, divOf } = base;
-  const { teams: spots, byes, divisionWinnersSeeded } = league.playoffs;
-  const hasDivs = divisionWinnersSeeded && league.divisions.length > 1;
+  const PO = league.playoffs, SB = league.shitBowl;
   const nDivs = league.divisions.length;
+  const poDivs = PO.divisionWinnersSeeded && nDivs > 1;
+  const sbDivs = SB && SB.divisionWinnersSeeded && nDivs > 1;
   const sameDiv = (a, b) => divOf[a] != null && divOf[a] === divOf[b];
 
   const weeks = remainingWeeks(league);
@@ -333,18 +343,33 @@ export function simulate(league, base, model, n = 10000) {
   const focusGames = focusWeek != null ? gamesByWeek[0] : [];
   const G = focusGames.length;
 
-  const seedCounts = Array.from({ length: T }, () => new Float64Array(T));
+  const races = { playoffs: PO, ...(SB ? { shitbowl: SB } : {}) };
+  const tallies = {};
+  for (const key of Object.keys(races)) {
+    tallies[key] = {
+      seedCounts: Array.from({ length: T }, () => new Float64Array(T)),
+      divCount: new Float64Array(T),         // division winner (playoffs) / division loser (Shit Bowl)
+      made: new Uint8Array(n * T),           // per-sim, for conditional odds
+    };
+  }
   const winsTotal = new Float64Array(T);
-  const divCount = new Float64Array(T);
-  const lastCount = new Float64Array(T);
   const focusOutcome = new Uint8Array(n * G); // 1 if team a won focus game g
-  const madePO = new Uint8Array(n * T);
 
   const normal = makeNormal();
   const st = newState(T);
   const score = new Array(T);
   const mean = model.teams.map(m => m.mean);
   const sd = model.sd;
+
+  const tally = (key, s, order, hasDivs) => {
+    const t = tallies[key], spots = races[key].teams;
+    for (let r = 0; r < T; r++) {
+      const i = order[r];
+      t.seedCounts[i][r]++;
+      if (r < spots) t.made[s * T + i] = 1;
+    }
+    if (hasDivs) for (let r = 0; r < nDivs; r++) t.divCount[order[r]]++;
+  };
 
   for (let s = 0; s < n; s++) {
     copyState(st, base.st);
@@ -358,41 +383,38 @@ export function simulate(league, base, model, n = 10000) {
       }
       addBreakdown(st, score);
     }
-    const { order, divOrder } = seedOrder(st, divOf, hasDivs);
-    for (let r = 0; r < T; r++) {
-      const i = order[r];
-      seedCounts[i][r]++;
-      if (r < spots) madePO[s * T + i] = 1;
-    }
-    if (hasDivs) {
-      for (let r = 0; r < nDivs; r++) divCount[order[r]]++;
-      for (const o of divOrder.values()) lastCount[o[o.length - 1]]++;
-    }
+    tally('playoffs', s, seedOrder(st, divOf, poDivs).order, poDivs);
+    if (SB) tally('shitbowl', s, seedOrder(st, divOf, sbDivs, Math.random, null, -1).order, sbDivs);
     for (let i = 0; i < T; i++) winsTotal[i] += st.w[i];
   }
 
-  const teams = Array.from({ length: T }, (_, i) => {
-    const seeds = Array.from(seedCounts[i], c => c / n);
+  const summarise = (key, i) => {
+    const t = tallies[key], cfg = races[key];
+    const seeds = Array.from(t.seedCounts[i], c => c / n);
     return {
       seeds,
-      playoffs: seeds.slice(0, spots).reduce((a, b) => a + b, 0),
-      bye: seeds.slice(0, byes).reduce((a, b) => a + b, 0),
-      division: hasDivs ? divCount[i] / n : null,
-      divisionLast: hasDivs ? lastCount[i] / n : null,
-      expWins: winsTotal[i] / n,
+      made: seeds.slice(0, cfg.teams).reduce((a, b) => a + b, 0),
+      bye: seeds.slice(0, cfg.byes).reduce((a, b) => a + b, 0),
+      division: (key === 'playoffs' ? poDivs : sbDivs) ? t.divCount[i] / n : null,
     };
-  });
+  };
+  const teams = Array.from({ length: T }, (_, i) => ({
+    expWins: winsTotal[i] / n,
+    playoffs: summarise('playoffs', i),
+    shitbowl: SB ? summarise('shitbowl', i) : null,
+  }));
 
-  // P(team x makes playoffs | outcome of focus game gi)
-  function conditional(x, gi) {
-    let aWins = 0, aWinsPO = 0, bWinsPO = 0;
+  // P(team x makes the given race | outcome of focus game gi)
+  function conditional(x, gi, key = 'playoffs') {
+    const made = tallies[key].made;
+    let aWins = 0, aWinsIn = 0, bWinsIn = 0;
     for (let s = 0; s < n; s++) {
-      const po = madePO[s * T + x];
-      if (focusOutcome[s * G + gi]) { aWins++; aWinsPO += po; } else bWinsPO += po;
+      const m = made[s * T + x];
+      if (focusOutcome[s * G + gi]) { aWins++; aWinsIn += m; } else bWinsIn += m;
     }
     return {
-      ifAWins: aWins ? aWinsPO / aWins : null,
-      ifBWins: n - aWins ? bWinsPO / (n - aWins) : null,
+      ifAWins: aWins ? aWinsIn / aWins : null,
+      ifBWins: n - aWins ? bWinsIn / (n - aWins) : null,
       pAWins: aWins / n,
     };
   }

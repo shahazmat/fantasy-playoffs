@@ -16,6 +16,8 @@
   --line: #2b6cb0;
   --me: #fff7d6;
   --heat: 43, 108, 176;
+  --brown: #8a5a2b;
+  --heat-sb: 138, 90, 43;
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
   --radius: 12px;
   color-scheme: light;
@@ -40,6 +42,8 @@
     --line: #6aa8ec;
     --me: #2f2a14;
     --heat: 106, 168, 236;
+    --brown: #d19a62;
+    --heat-sb: 209, 154, 98;
     --shadow: none;
     color-scheme: dark;
   }
@@ -49,7 +53,7 @@
   --text: #e8ebef; --muted: #98a1ae; --accent: #6aa8ec; --accent-soft: #1b2a3c;
   --good: #4cc483; --good-soft: #15301f; --bad: #ef7a6c; --bad-soft: #3a1c19;
   --gold: #e7b75a; --gold-soft: #33280f; --line: #6aa8ec; --me: #2f2a14;
-  --heat: 106, 168, 236; --shadow: none; color-scheme: dark;
+  --heat: 106, 168, 236; --brown: #d19a62; --heat-sb: 209, 154, 98; --shadow: none; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -102,6 +106,14 @@ section { margin-bottom: 16px; }
 .progress { height: 6px; background: var(--surface-2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
 .progress > i { display: block; height: 100%; background: var(--accent); }
 
+/* race toggle */
+.race-toggle { display: flex; gap: 4px; padding: 4px; margin: 16px 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; width: fit-content; max-width: 100%; }
+.race-toggle a { padding: 8px 16px; border-radius: 9px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; white-space: nowrap; }
+.race-toggle a:hover { color: var(--text); }
+.race-toggle a[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+:root[data-race="shitbowl"] { --line: var(--brown); --heat: var(--heat-sb); }
+.also { display: inline-block; font-size: .68rem; font-weight: 600; padding: 0 6px; border-radius: 5px; line-height: 17px; margin-left: 6px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+
 /* tables */
 .table-scroll { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
 .table { width: 100%; border-collapse: collapse; font-size: .88rem; }
@@ -139,6 +151,9 @@ section { margin-bottom: 16px; }
 .odds .bar > i { display: block; height: 100%; background: var(--accent); }
 .odds.po .bar > i { background: var(--good); }
 .odds.bye .bar > i { background: var(--gold); }
+.odds.sb .bar > i { background: var(--brown); }
+.b-safe { background: var(--good-soft); color: var(--good); }
+.b-sb { background: var(--brown); color: var(--surface); }
 .check { color: var(--good); font-weight: 700; }
 .dash { color: var(--muted); }
 .form { display: inline-flex; gap: 2px; }

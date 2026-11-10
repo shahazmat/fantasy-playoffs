@@ -35,9 +35,14 @@
     <div id="content" hidden>
       <section class="summary" id="summary"></section>
 
+      <nav class="race-toggle" id="race-toggle" role="tablist" aria-label="Which race">
+        <a href="#playoffs" role="tab" data-race="playoffs">🏆 Playoffs</a>
+        <a href="#shitbowl" role="tab" data-race="shitbowl">💩 Shit Bowl</a>
+      </nav>
+
       <section class="card">
         <div class="card-head">
-          <h2>Playoff picture</h2>
+          <h2 id="picture-title">Playoff picture</h2>
           <p class="muted" id="picture-note"></p>
         </div>
         <div class="table-scroll"><table class="table picture" id="picture"></table></div>
@@ -60,7 +65,7 @@
       <section class="card" id="stakes-card">
         <div class="card-head">
           <h2 id="stakes-title">What's at stake</h2>
-          <p class="muted">Each team's playoff odds with a win vs. a loss this week, biggest swings first.</p>
+          <p class="muted" id="stakes-sub"></p>
         </div>
         <div class="stakes" id="stakes"></div>
       </section>
@@ -75,8 +80,8 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>Seed odds</h2>
-          <p class="muted">Chance of finishing in each playoff seed.</p>
+          <h2 id="seeds-title">Seed odds</h2>
+          <p class="muted" id="seeds-sub"></p>
         </div>
         <div class="table-scroll"><table class="table heat" id="seeds"></table></div>
       </section>
